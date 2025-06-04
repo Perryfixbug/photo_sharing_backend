@@ -1,7 +1,7 @@
 const express = require("express");
 const Photo = require("../db/photoModel");
 const router = express.Router();
-const upload = require("../lib/imagefile"); 
+const {upload, remove} = require("../lib/cloudinary"); 
 
 router.get("/", async (request, response) => {
     try{
@@ -41,17 +41,18 @@ router.get("/:id", async (request, response) => {
     }
 });
 
+//upload vào cloudinary
 router.post("/", upload.single("image"), async (request, response) => {
     try{
         const {user_id} = request.body;
-        
+
         if(!request.file) {
             return response.status(400).json({ message: "Image file is required!" });
         }
-        const filename = request.file.filename;
+        const url = request.file.path;
         const newPhoto = new Photo({
             user_id,
-            file_name: filename,
+            url: url,
             date_time: new Date()
         });
         await newPhoto.save();
@@ -61,5 +62,25 @@ router.post("/", upload.single("image"), async (request, response) => {
         response.status(400).json({message: "Something went wrong!"});
     }
 });
+
+router.delete("/:id", async (request, response)=>{
+    try{
+        const photo_id = request.params.id;
+        const photo = await Photo.findById(photo_id);
+        
+        if (!photo) {
+            return response.status(404).json({ message: "Photo not found" });
+        }
+
+        await remove(photo.id);
+
+        await photo.deleteOne();
+
+        res.json({ message: "Photo deleted successfully" });
+        
+    }catch(e){
+        response.status(400).json({message: "Something went wrong!"});
+    }
+})
 
 module.exports = router;
